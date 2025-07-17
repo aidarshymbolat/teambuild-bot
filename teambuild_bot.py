@@ -1,6 +1,4 @@
 BOT_TOKEN = BOT_TOKEN = BOT_TOKEN = "7956103174:AAGag6FAferuuNSWq8wJJZNqKWiazE_wZQo"
-import logging
-
 
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import (
