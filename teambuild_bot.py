@@ -1,30 +1,34 @@
-BOT_TOKEN = BOT_TOKEN = BOT_TOKEN = "7956103174:AAGag6FAferuuNSWq8wJJZNqKWiazE_wZQo"
-
-from telegram import Update, ReplyKeyboardMarkup
+from telegram import Update
 from telegram.ext import (
-    ApplicationBuilder, CommandHandler, MessageHandler,
-    filters, ConversationHandler, ContextTypes
+    ApplicationBuilder,
+    CommandHandler,
+    MessageHandler,
+    ContextTypes,
+    ConversationHandler,
+    filters,
 )
 
-# States for creating a profile
+BOT_TOKEN = "7956103174:AAGag6FAferuuNSWq8wJJZNqKWiazE_wZQo"
+
+# Состояния анкеты
 FULL_NAME, AGE, COUNTRY, CONTACT, LOOKING_FOR, PURPOSE = range(6)
 
-# In-memory storage for user profiles
+# Память профилей
 user_profiles = {}
 
-# Start command
+# Команда /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "👋 Welcome to TeamBuild Bot!\n\n"
         "Available commands:\n"
         "/create - Create your profile\n"
-        "/search - Search other profiles\n"
+        "/search - Search other profiles (one by one)\n"
         "/delete - Delete your profile"
     )
 
-# Create command - step 1
+# === Шаги создания анкеты ===
 async def create(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Let's create your profile! 📝\n\nWhat is your full name?")
+    await update.message.reply_text("Let's create your profile! 📝\n\n What is your full name?")
     return FULL_NAME
 
 async def get_full_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -59,31 +63,40 @@ async def save_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("✅ Your profile has been created!")
     return ConversationHandler.END
 
-# Cancel command
+# Отмена
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("❌ Profile creation cancelled.")
     return ConversationHandler.END
 
-# Search command
+# Поиск анкет
 async def search(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not user_profiles:
         await update.message.reply_text("There are no profiles yet. Try again later.")
         return
 
-    message = "📋 List of Profiles:\n\n"
-    for profile in user_profiles.values():
-        message += (
-            f"👤 Name: {profile['full_name']}\n"
-            f"🎂 Age: {profile['age']}\n"
-            f"🌍 Country: {profile['country']}\n"
-            f"📱 Contact: {profile['contact']}\n"
-            f"🔎 Looking for: {profile['looking_for']}\n"
-            f"🎯 Purpose: {profile['purpose']}\n"
-            f"-------------------------\n"
-        )
-    await update.message.reply_text(message)
+    user_id = update.message.from_user.id
+    all_profiles = list(user_profiles.values())
+    index = context.user_data.get("search_index", 0)
 
-# Delete command
+    if index >= len(all_profiles):
+        await update.message.reply_text("✅ You've seen all profiles.")
+        context.user_data["search_index"] = 0
+        return
+
+    profile = all_profiles[index]
+    context.user_data["search_index"] = index + 1
+
+    msg = (
+        f"👤 Name: {profile['full_name']}\n"
+        f"🎂 Age: {profile['age']}\n"
+        f"🌍 Country: {profile['country']}\n"
+        f"📱 Contact: {profile['contact']}\n"
+        f"🔎 Looking for: {profile['looking_for']}\n"
+        f"🎯 Purpose: {profile['purpose']}"
+    )
+    await update.message.reply_text(msg)
+
+# Удаление анкеты
 async def delete(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     if user_id in user_profiles:
@@ -92,11 +105,10 @@ async def delete(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("❗ You don’t have a profile yet.")
 
-# Main function
+# Главная функция
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    # Conversation handler for /create
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("create", create)],
         states={
@@ -110,6 +122,7 @@ def main():
         fallbacks=[CommandHandler("cancel", cancel)],
     )
 
+    # Обработчики
     app.add_handler(CommandHandler("start", start))
     app.add_handler(conv_handler)
     app.add_handler(CommandHandler("search", search))
